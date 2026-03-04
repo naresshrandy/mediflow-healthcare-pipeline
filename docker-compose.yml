@@ -1,0 +1,71 @@
+﻿services:
+
+  postgres:
+    image: postgres:15
+    container_name: mediflow_postgres
+    environment:
+      POSTGRES_USER: mediflow
+      POSTGRES_PASSWORD: mediflow123
+      POSTGRES_DB: mediflow_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mediflow_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediflow -d mediflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: mediflow_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - mediflow_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: mediflow_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - mediflow_network
+
+  airflow:
+    image: apache/airflow:2.6.3
+    container_name: mediflow_airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://mediflow:mediflow123@postgres/mediflow_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      GOOGLE_APPLICATION_CREDENTIALS: /app/gcp-credentials.json
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./orchestration/airflow:/opt/airflow/dags
+      - ./gcp-credentials.json:/app/gcp-credentials.json
+    command: bash -c "sleep infinity"
+    networks:
+      - mediflow_network
+
+volumes:
+  postgres_data:
+
+networks:
+  mediflow_network:
+    driver: bridge

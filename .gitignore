@@ -1,0 +1,18 @@
+﻿# Credentials — NEVER upload these!
+gcp-credentials.json
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Data files
+data/dead_letter_queue.json
+
+# IDE
+.vscode/
+.idea/
+
+.vs/
